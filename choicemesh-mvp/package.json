@@ -1,0 +1,27 @@
+{
+  "name": "choicemesh-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "predev": "node scripts/build-demo.mjs",
+    "build": "next build",
+    "prebuild": "node scripts/build-demo.mjs",
+    "start": "next start",
+    "prestart": "node scripts/build-demo.mjs",
+    "lint": "next lint",
+    "demo": "node scripts/build-demo.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.2",
+    "next": "15.2.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "typescript": "^5.8.2"
+  }
+}

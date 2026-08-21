@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChoiceMesh · 阶段 D 流程测试</title>
+  <style>
+    :root {
+      --ink: #17221d;
+      --muted: #67746c;
+      --paper: #f5f5ef;
+      --line: #d6d8cf;
+      --forest: #215b45;
+      --forest-pale: #e2eee7;
+      --amber: #a95c13;
+      --amber-pale: #fff0dc;
+      --rose: #b44136;
+      --rose-pale: #fde8e5;
+      --white: #fffefa;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .shell { width: min(1040px, calc(100% - 32px)); margin: 0 auto; }
+    header { padding: 34px 0 22px; border-bottom: 1px solid var(--line); }
+    .eyebrow { color: var(--forest); font-size: 13px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { margin: 4px 0 4px; font-size: clamp(28px, 5vw, 46px); letter-spacing: -.045em; line-height: 1.05; }
+    .subhead { margin: 0; max-width: 720px; color: var(--muted); }
+    .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 24px 0; }
+    .step-dot { border: 0; background: transparent; color: var(--muted); padding: 8px 4px; text-align: left; border-top: 3px solid var(--line); transition: color .18s ease, border-color .18s ease; }
+    .step-dot strong { display: block; font-size: 13px; }
+    .step-dot span { display: block; font-size: 12px; }
+    .step-dot.active { color: var(--ink); border-color: var(--forest); }
+    .step-dot.done { color: var(--forest); border-color: var(--forest); }
+    main { padding-bottom: 42px; }
+    .screen { display: none; animation: enter .24s ease both; }
+    .screen.active { display: block; }
+    @keyframes enter { from { opacity: .15; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+    .screen-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 18px 0 24px; }
+    h2 { margin: 0; font-size: clamp(23px, 3vw, 32px); line-height: 1.12; letter-spacing: -.035em; }
+    .screen-head p { max-width: 620px; margin: 7px 0 0; color: var(--muted); }
+    .study-note { color: var(--muted); font-size: 13px; border-left: 3px solid var(--forest); padding-left: 10px; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(250px, .9fr); gap: 18px; }
+    .panel { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+    .panel h3 { margin: 0 0 12px; font-size: 16px; }
+    .panel p { margin: 0 0 14px; }
+    .field { display: grid; gap: 7px; margin-bottom: 16px; }
+    label { font-weight: 650; font-size: 14px; }
+    select, .inputlike { width: 100%; min-height: 43px; background: #fff; border: 1px solid #bfc5ba; border-radius: 9px; padding: 9px 11px; color: var(--ink); }
+    .option-list { display: grid; gap: 8px; }
+    .option { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+    .option input { margin-top: 4px; accent-color: var(--forest); }
+    .option small, .muted { color: var(--muted); }
+    .callout { margin-top: 16px; padding: 13px 14px; border-radius: 10px; background: var(--forest-pale); color: #193d2d; font-size: 14px; }
+    .callout.warn { background: var(--amber-pale); color: #6e3b0d; }
+    .actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 24px; }
+    .right-actions { display: flex; gap: 10px; margin-left: auto; }
+    .button { min-height: 43px; padding: 9px 15px; border: 1px solid var(--ink); border-radius: 9px; background: transparent; color: var(--ink); font-weight: 700; }
+    .button.primary { border-color: var(--forest); background: var(--forest); color: white; }
+    .button.secondary { border-color: var(--line); background: white; }
+    .button:disabled { cursor: not-allowed; opacity: .42; }
+    .rule { height: 1px; background: var(--line); margin: 17px 0; }
+    .candidate { display: grid; grid-template-columns: 1.1fr 1fr auto; gap: 12px; align-items: center; padding: 13px 0; border-top: 1px solid var(--line); }
+    .candidate:first-child { border-top: 0; }
+    .candidate strong { display: block; }
+    .candidate small { display: block; color: var(--muted); }
+    .badge { display: inline-flex; width: fit-content; padding: 3px 8px; border-radius: 99px; background: var(--forest-pale); color: #174430; font-weight: 700; font-size: 12px; white-space: nowrap; }
+    .badge.warn { background: var(--amber-pale); color: #75400e; }
+    .badge.pending { background: #e6effa; color: #275b92; }
+    .badge.risk { background: var(--rose-pale); color: #8b3229; }
+    .status-grid { display: grid; grid-template-columns: 1.15fr repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+    .status-grid > div { min-height: 55px; padding: 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 13px; }
+    .head { background: #eff0ea; color: var(--muted); font-weight: 700; }
+    .state-ok { color: #1d6549; font-weight: 700; }
+    .state-pending { color: #275b92; font-weight: 700; border-left: 3px solid #4c85c4; }
+    .state-risk { color: var(--amber); font-weight: 700; border-left: 3px dashed var(--amber); }
+    .state-soft { color: #53635a; }
+    .reason { display: block; color: var(--muted); margin-top: 3px; font-size: 12px; }
+    .private { font-size: 13px; color: var(--muted); }
+    .notice { margin: 12px 0 0; min-height: 21px; color: var(--forest); font-size: 14px; font-weight: 650; }
+    .confirm-block { border: 1px solid var(--amber); background: var(--amber-pale); border-radius: var(--radius); padding: 22px; }
+    .confirm-block.ready { border-color: var(--forest); background: var(--forest-pale); }
+    .confirm-block h3 { margin: 0 0 7px; font-size: 20px; }
+    .confirm-block p { margin: 0; }
+    .checkline { display: flex; gap: 9px; align-items: flex-start; margin-top: 14px; }
+    .checkline input { margin-top: 5px; accent-color: var(--forest); }
+    .final { text-align: center; padding: 62px 20px; }
+    .final .mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 18px; border-radius: 50%; background: var(--forest); color: white; font-size: 28px; }
+    .final p { max-width: 490px; margin: 10px auto 0; color: var(--muted); }
+    @media (max-width: 720px) {
+      .shell { width: min(100% - 24px, 1040px); }
+      header { padding-top: 24px; }
+      .steps { overflow-x: auto; grid-template-columns: repeat(5, minmax(110px, 1fr)); }
+      .layout { grid-template-columns: 1fr; }
+      .candidate { grid-template-columns: 1fr; gap: 4px; }
+      .status-grid { grid-template-columns: 1.2fr repeat(3, minmax(95px, 1fr)); overflow-x: auto; }
+      .actions { align-items: stretch; flex-wrap: wrap; }
+      .right-actions { width: 100%; margin-left: 0; }
+      .right-actions .button { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="eyebrow">ChoiceMesh / 阶段 D 概念测试</div>
+      <h1>先确认条件，再确认方案。</h1>
+      <p class="subhead">这是一个低保真可点击流程，只用于测试状态、风险和确认逻辑；所有内容均为模拟数据。</p>
+    </header>
+
+    <nav class="steps" aria-label="五步流程">
+      <button class="step-dot active" data-step="1"><strong>01</strong><span>设置活动</span></button>
+      <button class="step-dot" data-step="2"><strong>02</strong><span>填写条件</span></button>
+      <button class="step-dot" data-step="3"><strong>03</strong><span>比较方案</span></button>
+      <button class="step-dot" data-step="4"><strong>04</strong><span>处理待核实</span></button>
+      <button class="step-dot" data-step="5"><strong>05</strong><span>最终确认</span></button>
+    </nav>
+
+    <main>
+      <section class="screen active" data-screen="1">
+        <div class="screen-head"><div><h2>这次活动，怎样才算可以成行？</h2><p>发起人先设定参与规则与已有候选。系统不推荐地点，也不替任何人做决定。</p></div><div class="study-note">测试点：参与规则是否容易理解</div></div>
+        <div class="layout">
+          <div class="panel">
+            <div class="field"><label for="rule">参与规则</label><select id="rule"><option>至少 2 人确认即可成行</option><option>所有成员都确认才成行</option><option>关键成员必须确认</option></select><small id="rule-info">包含发起人：任意 2 名成员完成确认，活动即可成行。</small></div>
+            <div class="field"><label for="host">最终发布人</label><select id="host"><option>成员 1（发起人）</option><option>由群体投票确认</option></select></div>
+            <div class="callout">本测试从 4 个已有候选开始。真实使用可从空白发起，并在讨论中新增、删除或替换候选。</div>
+          </div>
+          <aside class="panel"><h3>候选活动</h3><div class="candidate"><div><strong>A · 桌游与简餐</strong><small>周六 16:00 · 45 元</small></div><span class="badge">已有</span></div><div class="candidate"><div><strong>B · 手作与晚餐</strong><small>周六 18:30 · 60 元</small></div><span class="badge">已有</span></div><div class="candidate"><div><strong>C · 轻徒步与午餐</strong><small>周日 11:00 · 55 元</small></div><span class="badge">已有</span></div><div class="candidate"><div><strong>D · 陶艺体验</strong><small>周日 13:00 · 70 元</small></div><span class="badge">已有</span></div></aside>
+        </div>
+        <div class="actions"><span class="muted">第 1 步，共 5 步</span><div class="right-actions"><button class="button primary" data-next="2">继续：填写条件</button></div></div>
+      </section>
+
+      <section class="screen" data-screen="2">
+        <div class="screen-head"><div><h2>告诉大家哪些条件会影响你参加。</h2><p>不需要解释私人原因。你只需选择它是“无法参加”、还是“有更好”。</p></div><div class="study-note">测试点：日常语言是否比硬／软术语清楚</div></div>
+        <div class="layout">
+          <div class="panel">
+            <h3>成员 2 的模拟填写</h3>
+            <p class="private">以下是该成员先前填写的示例，不是系统替成员预填；真实使用中，每位成员只编辑自己的条件。</p>
+            <div class="field"><label>周六</label><div class="inputlike">没有这个我就来不了：周六无法参加</div></div>
+            <div class="field"><label>公共交通单程</label><div class="option-list"><label class="option"><input type="radio" name="travel" checked><span><strong>还没核实</strong><br><small>我需要确认是否在可接受范围内。</small></span></label><label class="option"><input type="radio" name="travel"><span><strong>没有这个我就来不了</strong><br><small>超过 45 分钟，我不能参加。</small></span></label><label class="option"><input type="radio" name="travel"><span><strong>有更好，没有也行</strong><br><small>通勤短一点更好，但不是必要条件。</small></span></label></div></div>
+            <p class="private">此项只会显示“存在待核实条件”。是否公开具体原因由成员自己决定；待核实不会自动升级为确认，成员可收到一次私密提醒。</p>
+          </div>
+          <aside class="panel"><h3>状态说明</h3><p><span class="badge pending">等待回复</span> 成员尚未提交任何反馈；下一步由该成员回复。</p><p><span class="badge">已确认</span> 已核对具体条件并承诺参加。</p><p><span class="badge pending">待核实</span> 条件尚未验证；下一步由对应成员核实，不能当作确认。</p><p><span class="badge warn">边界风险</span> 条件已验证，但刚好卡在上限；不阻止发布，需由发起人知情确认。</p><p><span class="badge">偏好</span> 会记录让步，但不会阻挡方案。</p><div class="callout warn">成员“等待回复”与条件“待核实”是两件事。“应该还好”“大概可以”默认进入待核实，不自动变成已确认；如实选择能避免临时变卦。</div></aside>
+        </div>
+        <div class="actions"><button class="button secondary" data-prev="1">返回</button><div class="right-actions"><button class="button primary" data-next="3">继续：比较方案</button></div></div>
+      </section>
+
+      <section class="screen" data-screen="3">
+        <div class="screen-head"><div><h2>先看哪些方案仍可推进。</h2><p>系统呈现聚合状态与风险，不展示私人理由，也不自动选定方案。</p></div><div class="study-note">测试点：解释是否足够且不施压</div></div>
+        <div class="panel">
+          <div class="candidate"><div><strong>C · 轻徒步与午餐</strong><small>周日 11:00–14:00 · 55 元 · 市中心</small><small>成员回复：3/3 已反馈 · 下一步：成员 2 核实交通</small></div><span class="badge pending">可推进 · 1 待核实</span><button class="button primary" data-next="4">查看状态</button></div>
+          <div class="candidate"><div><strong>E · 解谜活动与晚餐</strong><small>周日 17:00–20:00 · 50 元 · 市中心</small></div><span class="badge risk">1 个硬冲突</span><button class="button secondary" type="button" onclick="announce('存在最晚离开时间冲突。需要时可私下向相关成员确认是否可调整。')">查看原因</button></div>
+          <div class="candidate"><div><strong>A / B · 周六方案</strong><small>至少一名成员已确认周六无法参加</small></div><span class="badge risk">1 个硬冲突</span><button class="button secondary" type="button" onclick="announce('该方案无法满足一项已确认的参加条件。')">查看原因</button></div>
+        </div>
+        <p id="notice" class="notice" aria-live="polite"></p>
+        <div class="layout" style="margin-top:18px"><div class="panel"><h3>C 的摘要</h3><p><span class="badge">2 人已确认</span> <span class="badge pending">1 项待核实</span> <span class="badge warn">1 项边界风险</span></p><div class="callout warn">预算已验证，但刚好为上限：这是边界风险，不是待核实。它不会阻止发布，但发起人需知情确认，并避免出现额外费用。</div></div><aside class="panel"><h3>记录的让步</h3><p>存在 1 项非阻挡偏好：有人更希望室内活动。</p><p class="private">不显示是哪位成员，也不要求公开原因。</p></aside></div>
+        <div class="actions"><button class="button secondary" data-prev="2">返回</button><div class="right-actions"><button class="button primary" data-next="4">处理待核实项</button></div></div>
+      </section>
+
+      <section class="screen" data-screen="4">
+        <div class="screen-head"><div><h2>还有 1 项条件待核实。</h2><p>在它完成前，发起人可以暂定方案、联系成员，或换一个候选；不能把推测当作确认。</p></div><div class="study-note">测试点：待核实状态能否促成合适的下一步</div></div>
+        <div class="layout">
+          <div class="panel"><h3>候选 C · 当前状态</h3><div class="status-grid"><div class="head">成员</div><div class="head">时间</div><div class="head">预算</div><div class="head">交通</div><div>成员 1</div><div class="state-ok">已确认</div><div class="state-ok">已确认</div><div class="state-ok">已确认</div><div>成员 2</div><div class="state-ok">已确认</div><div class="state-ok">已确认</div><div class="state-pending" id="travel-status">待核实<span class="reason">不公开具体原因</span></div><div>成员 3</div><div class="state-ok">已确认</div><div class="state-risk">边界风险<span class="reason">已验证，刚好为上限</span></div><div class="state-ok">已确认</div></div><p class="notice" id="verify-message">目前：2 人已确认，1 人待核实。还不能发布最终确认。</p></div>
+          <aside class="panel"><h3>发起人可做什么</h3><button class="button primary" id="verify-btn">模拟：收到成员本人通勤确认</button><button class="button secondary" type="button" onclick="setProvisional()">暂定 C</button><button class="button secondary" type="button" onclick="returnToCompare()">改选其他方案</button><button class="button secondary" type="button" onclick="acceptAbsence()">接受成员缺席</button><p class="private" id="provisional-state">当前状态：尚未暂定，也未发布。</p><div class="rule"></div><p><strong>边界风险无需“消除”。</strong>它是已验证但没有余量的事实；发起人可知情发布、调整方案，或避免新增费用。</p><p class="private">真实产品中，成员自行更新状态；发起人只能记录已收到的成员确认。本按钮仅用于模拟该回执。</p><p class="notice" id="action-message" aria-live="polite"></p></aside>
+        </div>
+        <div class="actions"><button class="button secondary" data-prev="3">返回</button><div class="right-actions"><button class="button primary" id="to-confirm" data-next="5" disabled>继续：最终确认</button></div></div>
+      </section>
+
+      <section class="screen" data-screen="5">
+        <div class="screen-head"><div><h2>现在可以由发起人发布最终结果。</h2><p>确认是明确动作，不会因群聊沉默或“应该可以”自动完成。</p></div><div class="study-note">测试点：最终确认节点是否清楚</div></div>
+        <div class="confirm-block" id="confirm-block"><h3 id="confirm-title">C 已满足最低参与规则</h3><p id="confirm-copy">3 人均已确认；其中 1 人的预算为边界风险。发布不会抹去风险，成员将收到结果回执，仍可标记新问题。</p><label class="checkline"><input id="publish-check" type="checkbox"><span>我确认：现在发布会将方案标为已确认并通知所有成员；它不再只是“考虑中”。</span></label></div>
+        <div class="actions"><button class="button secondary" data-prev="4">返回</button><div class="right-actions"><button class="button primary" id="publish-btn" disabled>发布最终方案</button></div></div>
+      </section>
+
+      <section class="screen" data-screen="6"><div class="panel final"><div class="mark">✓</div><h2>方案 C 已发布。</h2><p>系统记录：3 人确认、1 项预算边界风险、1 项未影响决策的偏好让步。成员会收到结果回执。</p><div class="right-actions" style="justify-content:center; margin:22px 0 0"><button class="button secondary" id="receipt-btn">收到</button><button class="button primary" id="issue-btn">仍有问题</button></div><p class="notice" id="receipt-message" aria-live="polite"></p><div class="actions" style="justify-content:center"><button class="button secondary" id="restart">重新体验</button></div></div></section>
+    </main>
+  </div>
+  <script>
+    let current = 1;
+    let verified = false;
+    const allScreens = [...document.querySelectorAll('.screen')];
+    const dots = [...document.querySelectorAll('.step-dot')];
+
+    function show(step) {
+      current = step;
+      allScreens.forEach(screen => screen.classList.toggle('active', Number(screen.dataset.screen) === step));
+      dots.forEach(dot => {
+        const dotStep = Number(dot.dataset.step);
+        dot.classList.toggle('active', dotStep === step);
+        dot.classList.toggle('done', dotStep < step);
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function announce(text) {
+      document.getElementById('notice').textContent = text;
+    }
+
+    function announceAction(text) {
+      document.getElementById('action-message').textContent = text;
+    }
+
+    function setProvisional() {
+      document.getElementById('provisional-state').textContent = '当前状态：已暂定 C，尚未发布；成员仍可更新状态。';
+      announceAction('已保存暂定方案。');
+    }
+
+    function returnToCompare() {
+      show(3);
+      announce('已返回候选比较：尚未发布的暂定状态会保留。');
+    }
+
+    function acceptAbsence() {
+      document.getElementById('provisional-state').textContent = '当前状态：已选择按最低参与规则继续；尚未发布。';
+      announceAction('已记录：若有人缺席，将按已设定的最低人数规则处理。');
+    }
+
+    const ruleInfo = document.getElementById('rule-info');
+    document.getElementById('rule').addEventListener('change', event => {
+      const messages = [
+        '包含发起人：任意 2 名成员完成确认，活动即可成行。',
+        '包含发起人：所有成员都完成确认后，活动才可成行。',
+        '由发起人在创建活动时指定谁必须确认；这只定义活动是否能照常进行，不代表谁更重要。'
+      ];
+      ruleInfo.textContent = messages[event.target.selectedIndex];
+    });
+
+    document.querySelectorAll('[data-next]').forEach(button => button.addEventListener('click', () => show(Number(button.dataset.next))));
+    document.querySelectorAll('[data-prev]').forEach(button => button.addEventListener('click', () => show(Number(button.dataset.prev))));
+    dots.forEach(dot => dot.addEventListener('click', () => {
+      const target = Number(dot.dataset.step);
+      if (target <= current || target === 1) show(target);
+    }));
+
+    document.getElementById('verify-btn').addEventListener('click', () => {
+      verified = true;
+      document.getElementById('verify-message').textContent = '已更新：3 人已确认。成员 3 的预算边界风险仍会保留在结果中。';
+      document.getElementById('travel-status').className = 'state-ok';
+      document.getElementById('travel-status').innerHTML = '已确认<span class="reason">成员本人已确认</span>';
+      document.getElementById('verify-btn').textContent = '已收到：成员 2 本人确认';
+      document.getElementById('verify-btn').disabled = true;
+      document.getElementById('to-confirm').disabled = false;
+    });
+
+    document.getElementById('publish-check').addEventListener('change', event => {
+      document.getElementById('publish-btn').disabled = !event.target.checked || !verified;
+    });
+    document.getElementById('publish-btn').addEventListener('click', () => show(6));
+    document.getElementById('receipt-btn').addEventListener('click', () => {
+      document.getElementById('receipt-message').textContent = '已记录成员回执。活动保持已确认状态。';
+    });
+    document.getElementById('issue-btn').addEventListener('click', () => {
+      show(4);
+      announceAction('成员提出新问题：活动已回到协调中，发起人可重新比较、暂定或调整。');
+    });
+    document.getElementById('restart').addEventListener('click', () => {
+      verified = false;
+      document.getElementById('verify-message').textContent = '目前：2 人已确认，1 人待核实。还不能发布最终确认。';
+      document.getElementById('travel-status').className = 'state-pending';
+      document.getElementById('travel-status').innerHTML = '待核实<span class="reason">不公开具体原因</span>';
+      document.getElementById('verify-btn').textContent = '模拟：收到成员本人通勤确认';
+      document.getElementById('verify-btn').disabled = false;
+      document.getElementById('action-message').textContent = '';
+      document.getElementById('provisional-state').textContent = '当前状态：尚未暂定，也未发布。';
+      document.getElementById('receipt-message').textContent = '';
+      document.getElementById('to-confirm').disabled = true;
+      document.getElementById('publish-check').checked = false;
+      document.getElementById('publish-btn').disabled = true;
+      show(1);
+    });
+  </script>
+</body>
+</html>

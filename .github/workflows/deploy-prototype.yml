@@ -1,0 +1,35 @@
+name: Deploy ChoiceMesh prototype
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "产出/交付物/产品原型/06_ChoiceMesh_高保真原型_V3/**"
+      - ".github/workflows/deploy-prototype.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Upload prototype
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "./产出/交付物/产品原型/06_ChoiceMesh_高保真原型_V3"
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

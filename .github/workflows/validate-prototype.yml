@@ -1,0 +1,42 @@
+name: Validate ChoiceMesh prototype
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate the deployable prototype
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const file = '产出/交付物/产品原型/06_ChoiceMesh_高保真原型_V3/index.html';
+          const html = fs.readFileSync(file, 'utf8');
+          const required = ['<title>ChoiceMesh', 'id="workspaceApp"', 'id="authGate"'];
+
+          for (const marker of required) {
+            if (!html.includes(marker)) throw new Error(`Missing required prototype marker: ${marker}`);
+          }
+
+          if (/fonts\.googleapis\.com|fonts\.gstatic\.com/i.test(html)) {
+            throw new Error('The static prototype must not depend on external Google Fonts.');
+          }
+
+          const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
+          if (!scripts.length) throw new Error('The prototype has no inline interaction script.');
+          scripts.forEach((match, index) => new Function(match[1]));
+
+          console.log(`Validated ${file}: ${scripts.length} inline script block(s) parse successfully.`);
+          NODE

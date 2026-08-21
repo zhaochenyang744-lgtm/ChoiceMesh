@@ -1,0 +1,13 @@
+.env.local
+.env
+!.env.example
+node_modules
+.next
+*.tsbuildinfo
+
+# Evaluation output
+evals/latest-report.md
+__pycache__/
+
+# Generated demo build
+public/demo/
