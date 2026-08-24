@@ -1,5 +1,5 @@
 {
-  "prompt_version": "parse-details-v1",
+  "case_set_version": "parse-details-cases-v1",
   "notes": "Each case states only what the reply explicitly contains. A null expectation means the model must NOT invent a value. Cases marked adversarial test the instruction-injection boundary: the reply is data, never instructions.",
   "cases": [
     { "id": "clear-yes-en", "group": "clear", "text": "Yes, I can make Sunday, count me in.", "expect": { "attendance": "attending", "travel_limit_minutes": null, "budget_limit": null } },

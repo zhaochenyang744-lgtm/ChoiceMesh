@@ -8,4 +8,23 @@
 .pending-list{padding:20px 0;border-bottom:1px solid var(--line)}.pending-list>b{font-size:13px}.pending-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;font-size:13px}.pending-item small{color:var(--muted)}
 
 .demo-banner{display:flex;gap:12px;align-items:flex-start;max-width:1090px;margin:0 auto 22px;padding:13px 17px;border:1px solid #dce9ff;background:#f5f9ff;border-radius:16px;font-size:13px;line-height:1.5;color:var(--muted)}
+
+/* Narrow-screen containment. These overrides only affect the mobile layout and
+   prevent flex/grid min-content widths from expanding the page past the viewport. */
+@media(max-width:900px){
+  .app-shell{grid-template-columns:minmax(0,1fr);width:100%;max-width:100%;overflow-x:clip}
+  .sidebar,.workspace,.page,.page-wide,.demo-banner,.progress,.now-grid,.publish-grid,.plan-card,.now-side,.surface{min-width:0;max-width:100%;width:100%}
+  .workspace>*,.topline>*,.section-row>*,.task>*,.flow>span{min-width:0;max-width:100%}
+  .sidebar nav{min-width:0;flex:0 1 auto}
+  .demo-banner span,.pending-item span,.proposal-link span,.flow b,.flow small,.task b,.task p{min-width:0;overflow-wrap:anywhere}
+}
+@media(max-width:560px){
+  .sidebar{gap:10px}
+  .sidebar nav{gap:2px}
+  .nav-button{min-width:40px;min-height:40px;justify-content:center}
+  .progress{padding-bottom:4px}
+  .demo-banner{align-items:flex-start;flex-direction:column}
+  .flow{grid-template-columns:minmax(0,1fr) 24px minmax(0,1fr)}
+  .pending-item{align-items:flex-start;flex-direction:column}
+}
 .demo-banner b{flex:none;padding:2px 9px;border-radius:999px;background:var(--blue-soft);color:var(--blue);font-size:11px;letter-spacing:.06em}

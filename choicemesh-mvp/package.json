@@ -2,6 +2,7 @@
   "name": "choicemesh-mvp",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev",
     "predev": "node scripts/build-demo.mjs",
@@ -9,8 +10,13 @@
     "prebuild": "node scripts/build-demo.mjs",
     "start": "next start",
     "prestart": "node scripts/build-demo.mjs",
-    "lint": "next lint",
-    "demo": "node scripts/build-demo.mjs"
+    "demo": "node scripts/build-demo.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "check:privacy": "node scripts/check-privacy-boundary.mjs",
+    "check:dataset": "node scripts/build-golden-dataset.mjs --check",
+    "check:links": "node scripts/check-doc-links.mjs",
+    "check": "npm run typecheck && npm test && npm run check:privacy && npm run check:dataset && npm run check:links && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.2",

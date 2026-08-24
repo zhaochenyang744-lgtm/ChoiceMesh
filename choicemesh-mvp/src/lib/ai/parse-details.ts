@@ -6,7 +6,7 @@
  * (rate limiting, status codes); this module owns the model contract.
  */
 
-import { isDetailDraft, type DetailDraft } from "../details";
+import { applyAttendanceSafetyGuard, isDetailDraft, type DetailDraft } from "../details";
 import { PARSE_DETAILS_PROMPT_VERSION, parseDetailsSystemPrompt } from "./parse-details-prompt";
 
 export const MAX_REPLY_LENGTH = 2000;
@@ -106,7 +106,7 @@ export async function parseDetails(text: string): Promise<ParseResult> {
         continue;
       }
 
-      return { ok: true, draft: parsed, attempts: attempt, latencyMs: Date.now() - startedAt };
+      return { ok: true, draft: applyAttendanceSafetyGuard(text, parsed), attempts: attempt, latencyMs: Date.now() - startedAt };
     } catch (error) {
       lastFailure = error instanceof Error && error.name === "AbortError" ? "timeout" : "upstream_error";
     }

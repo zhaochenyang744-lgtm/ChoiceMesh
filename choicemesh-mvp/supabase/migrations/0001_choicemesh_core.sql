@@ -252,10 +252,11 @@ as $$
       count(*) filter (
         where d.confirmed_at is not null
           and c.estimated_cost is not null
-          and nullif(d.parsed_detail ->> 'budget_limit', '')::numeric <= c.estimated_cost
+          and nullif(d.parsed_detail ->> 'budget_limit', '')::numeric < c.estimated_cost
       ) as boundary_risk_count
     from current_room c
-    left join public.private_details d on d.room_id = c.id
+    join public.room_members m on m.room_id = c.id
+    left join public.private_details d on d.room_id = c.id and d.user_id = m.user_id
   )
   select d.response_count, d.confirmed_count, d.cannot_attend_count, d.uncertain_count,
     d.boundary_risk_count, c.minimum_confirmations,

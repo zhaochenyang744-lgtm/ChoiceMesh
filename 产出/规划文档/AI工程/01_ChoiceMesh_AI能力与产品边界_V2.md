@@ -49,6 +49,6 @@ AI 只将当前成员主动提交的文字或语音转写整理成**仅本人可
 
 当前实现、提示词与安全测试使用：
 
-- [AI 提示词与输出契约 V1](./03_ChoiceMesh_AI提示词与输出契约_parse-details-v1.md)；
-- [AI 评测与安全规范 V1](./04_ChoiceMesh_AI评测与安全规范_V1.md)。
+- [AI 提示词与输出契约 V2](./03_ChoiceMesh_AI提示词与输出契约_parse-details-v5.md)；
+- [AI 评测与安全规范 V2](./04_ChoiceMesh_AI评测与安全规范_V2.md)。
 

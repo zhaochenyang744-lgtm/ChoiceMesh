@@ -14,7 +14,8 @@
  * state around it is simulated.
  */
 
-import type { DetailDraft } from "./details";
+export { offlineDraft } from "./offline-draft";
+import { supportPendingProposal, withdrawPendingProposal, type ProposalState } from "./proposal-resolution";
 
 const DEMO_FLAG = "choicemesh:demo";
 
@@ -27,7 +28,6 @@ export function isDemoMode(): boolean {
   }
   return window.sessionStorage.getItem(DEMO_FLAG) === "1";
 }
-
 type Row = Record<string, any>;
 
 const DEMO_USER = { id: "demo-user", email: "you@demo.choicemesh" };
@@ -45,7 +45,7 @@ function inDays(days: number, hour: number) {
 type Store = {
   rooms: Row[];
   room_members: Row[];
-  proposals: Row[];
+  proposals: Array<Row & ProposalState>;
   proposal_supports: Row[];
   private_details: Row[];
   published_versions: Row[];
@@ -128,7 +128,7 @@ export function createDemoClient() {
     const uncertain_count = details.filter((d) => !d.confirmed_at || d.attendance === "uncertain" || d.attendance === "not_specified").length;
     const boundary_risk_count = cost === null ? 0 : confirmed.filter((d) => {
       const limit = d.parsed_detail?.budget_limit;
-      return typeof limit === "number" && limit <= cost;
+      return typeof limit === "number" && limit < cost;
     }).length;
     const hasPending = db.proposals.some((p) => p.room_id === roomId && p.status === "pending");
     return {
@@ -229,12 +229,10 @@ export function createDemoClient() {
     }
 
     if (name === "support_proposal") {
-      const proposal = db.proposals.find((p) => p.id === args.p_proposal_id);
-      if (!proposal || proposal.status !== "pending") return { data: null, error: { message: "Proposal is not pending" } };
-      if (proposal.created_by === DEMO_USER.id) return { data: null, error: { message: "A proposer cannot support their own proposal" } };
+      const resolution = supportPendingProposal(db.proposals, args.p_proposal_id, DEMO_USER.id);
+      if (resolution.error || !resolution.proposal) return { data: null, error: { message: resolution.error } };
+      const proposal = resolution.proposal;
       db.proposal_supports.push({ proposal_id: proposal.id, user_id: DEMO_USER.id });
-      db.proposals.filter((p) => p.room_id === proposal.room_id && p.status === "current").forEach((p) => { p.status = "superseded"; });
-      proposal.status = "current";
       const room = db.rooms.find((r) => r.id === proposal.room_id);
       if (room) room.current_proposal_id = proposal.id;
       // The real rule: a new current proposal clears every confirmation.
@@ -248,6 +246,13 @@ export function createDemoClient() {
           .forEach((d) => { d.confirmed_at = new Date().toISOString(); });
         notify();
       }, 2600);
+      return { data: null, error: null };
+    }
+
+    if (name === "withdraw_proposal") {
+      const resolution = withdrawPendingProposal(db.proposals, args.p_proposal_id, DEMO_USER.id);
+      if (resolution.error) return { data: null, error: { message: resolution.error } };
+      notify();
       return { data: null, error: null };
     }
 
@@ -293,28 +298,5 @@ export function createDemoClient() {
       return api;
     },
     removeChannel: (channel: any) => { if (channel?.__fan) listeners.delete(channel.__fan); }
-  };
-}
-
-/**
- * A last-resort local parse used only when the AI endpoint is unavailable in
- * demo mode, so a portfolio visitor never hits a dead end. It is deliberately
- * crude and is never used when the server can reach the model.
- */
-export function offlineDraft(text: string): DetailDraft {
-  const lower = text.toLowerCase();
-  const travel = lower.match(/(\d{1,3})\s*(minutes|minute|mins|min|分钟)/);
-  const budget = lower.match(/[$￥¥]\s*(\d{1,5})|(\d{1,5})\s*(dollars|块|元)/);
-  const cannot = /(can't|cannot|can not|won't work|不能|来不了)/.test(lower);
-  const maybe = /(probably|should be able|might|maybe|大概|应该|可能)/.test(lower);
-  const can = /(i can|i'm free|i am free|works for me|可以|有空)/.test(lower);
-  const attendance: DetailDraft["attendance"] = cannot ? "cannot_attend" : maybe ? "uncertain" : can ? "attending" : "not_specified";
-  return {
-    attendance,
-    travel_limit_minutes: travel ? Number(travel[1]) : null,
-    budget_limit: budget ? Number(budget[1] || budget[2]) : null,
-    confirmation_by: null,
-    summary: "Offline draft. The AI service was unavailable, so this is a rough local reading of your reply.",
-    unparsed_notes: "Demo fallback: please check every field before confirming."
   };
 }

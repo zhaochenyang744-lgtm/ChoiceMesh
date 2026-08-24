@@ -13,6 +13,7 @@
 .DS_Store
 Thumbs.db
 *.log
+*.patch
 
 # Private project materials: keep locally, never publish to GitHub
 参考资料/

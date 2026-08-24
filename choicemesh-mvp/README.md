@@ -7,9 +7,11 @@ ChoiceMesh helps a group turn private availability details into a clear shared a
 - Room creation with one starting proposal and participation rule.
 - Private natural-language and browser voice input for personal details.
 - A server-only DeepSeek integration at `POST /api/parse-details`.
+- A deterministic S0 guard that changes known hedged or option-scoped affirmative over-claims back to `uncertain` before display.
 - Member review before details become confirmed.
+- A complete manual-entry path when AI is skipped or unavailable.
 - Shared, anonymous progress; nobody can read another member’s original reply or constraints.
-- Proposal changes that remain pending until supported, then require fresh confirmation.
+- Proposal changes that remain pending until supported or withdrawn. Supporting one change closes competing pending changes and requires fresh confirmation.
 - A Publish gate: members may open it after confirming their own details; it publishes only after the group rule is satisfied.
 
 ## Run locally
@@ -27,8 +29,20 @@ ChoiceMesh helps a group turn private availability details into a clear shared a
 
 Then open [http://localhost:3000](http://localhost:3000).
 
+## Evaluation and local checks
+
+```powershell
+node scripts/build-golden-dataset.mjs --check
+python scripts/eval-parse-details.py
+npm run check
+```
+
+`npm run check` runs TypeScript checking, deterministic fallback and proposal-resolution tests, privacy/schema checks, Golden dataset integrity, documentation-link checks, and a production build. The retained model reports live under `../产出/规划文档/AI工程/评测报告/`; only the frozen baseline and the current Golden result are kept.
+
 ## Privacy boundary
 
 The browser never receives `DEEPSEEK_API_KEY`. The API route sends a member’s reply only to DeepSeek, returns a private draft to that same browser session, and does not make decisions or publish on the member’s behalf.
 
-This first deployable slice deliberately uses local client state for the shared-room demonstration. A production multi-user release needs the next backend milestone: Supabase Auth, Postgres row-level security, room/member tables, and server-enforced support/publish transactions.
+Demo mode uses an in-memory client and stores nothing. The Supabase migrations provide an inspectable backend PoC with Auth-oriented ownership rules, RLS, anonymous room summaries and server-enforced support/publish transactions.
+
+This remains a personal portfolio project. Static migration checks and deterministic tests provide inspectable implementation evidence, but do not replace two-account testing against a configured Supabase project or independent human annotation of the AI dataset.

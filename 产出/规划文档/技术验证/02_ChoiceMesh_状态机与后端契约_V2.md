@@ -36,6 +36,7 @@ no_response → submitted → needs_verification → confirmed
 ```text
 incomplete → pending_review → current → published_snapshot
                   └──────────────────→ superseded
+                  └──────────────────→ withdrawn
 ```
 
 创建者的完整初始提案直接成为 `current`。成员提出的变更或替代提案只能先进入 `pending_review`。
@@ -43,10 +44,12 @@ incomplete → pending_review → current → published_snapshot
 ## 3. 原子规则
 
 1. `support_proposal` 验证支持者不是提议者，且在同一房间；满足门槛后原子切换 `current`；
-2. 切换当前提案后，服务端计算受影响条件并把相应成员改为 `needs_verification`；
-3. `publish_version` 在事务中重新验证：当前提案完整、无硬冲突、无待审覆盖、参与规则、继续决定、再确认和发布者的显式确认记录；
-4. `raise_issue` 只能创建新的协调轮次，不得更新或删除 `PublishedVersion`；
-5. 共同查询只能返回匿名聚合，不返回 `PrivateCondition.raw_text`、精确预算或路线。
+2. `withdraw_proposal` 仅允许提议者撤回自己的 `pending_review`；
+3. 支持一项时，同房间其余 `pending_review` 原子转为 `withdrawn`；
+4. 切换当前提案后，服务端计算受影响条件并把相应成员改为 `needs_verification`；
+5. `publish_version` 在事务中重新验证：当前提案完整、无硬冲突、无待审覆盖、参与规则、继续决定、再确认和发布者的显式确认记录；
+6. `raise_issue` 只能创建新的协调轮次，不得更新或删除 `PublishedVersion`；
+7. 共同查询只能返回匿名聚合，不返回 `PrivateCondition.raw_text`、精确预算或路线。
 
 ## 4. API 边界
 
@@ -56,5 +59,6 @@ incomplete → pending_review → current → published_snapshot
 - `POST /rooms/:id/private-conditions/confirm`：本人确认或更新条件；
 - `POST /rooms/:id/proposals`：创建待审变更/替代提案；
 - `POST /proposals/:id/supports`：支持待审提案；
+- `POST /proposals/:id/withdraw`：提议者撤回未获支持的待审提案；
 - `POST /rooms/:id/continuation-decisions`：显式接受按当前人数继续；
 - `POST /rooms/:id/published-versions`：创建新发布版本。

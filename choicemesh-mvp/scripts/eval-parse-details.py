@@ -38,7 +38,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PROMPT_FILE = ROOT / "src" / "lib" / "ai" / "parse-details-prompt.ts"
-CASES_FILE = ROOT / "evals" / "parse-details-cases.json"
+DEFAULT_CASES_FILE = ROOT / "evals" / "parse-details-golden-v1.json"
 API_URL = "https://api.deepseek.com/chat/completions"
 
 
@@ -52,12 +52,14 @@ def load_env():
                 os.environ.setdefault(key.strip(), value.strip())
 
 
-def load_prompt() -> str:
+def load_prompt() -> tuple[str, str]:
     source = PROMPT_FILE.read_text(encoding="utf-8")
-    match = re.search(r"parseDetailsSystemPrompt\s*=\s*`(.*?)`;", source, re.S)
-    if not match:
+    version_match = re.search(r'PARSE_DETAILS_PROMPT_VERSION\s*=\s*"([^"]+)"', source)
+    prompt_match = re.search(r"parseDetailsSystemPrompt\s*=\s*`(.*?)`;", source, re.S)
+    if not version_match or not prompt_match:
         sys.exit(f"Could not read the system prompt from {PROMPT_FILE}")
-    return match.group(1).replace("\\`", "`").replace("\\$", "$")
+    prompt = prompt_match.group(1).replace("\\`", "`").replace("\\$", "$")
+    return version_match.group(1), prompt
 
 
 def call_model(api_key: str, prompt: str, text: str, model: str, timeout: int = 30):
@@ -141,8 +143,10 @@ def evaluate(case, draft):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--group", help="only run one group")
+    parser.add_argument("--case", action="append", dest="case_ids", help="run one case id; may be repeated")
     parser.add_argument("--repeat", type=int, default=1, help="runs per case")
     parser.add_argument("--model", default=os.environ.get("DEEPSEEK_MODEL", "deepseek-chat"))
+    parser.add_argument("--cases", default=str(DEFAULT_CASES_FILE), help="labelled dataset JSON")
     parser.add_argument("--out", default=str(ROOT / "evals" / "latest-report.md"))
     args = parser.parse_args()
 
@@ -151,9 +155,17 @@ def main():
     if not api_key:
         sys.exit("DEEPSEEK_API_KEY is not set. Put it in .env.local or the environment.")
 
-    prompt = load_prompt()
-    data = json.loads(CASES_FILE.read_text(encoding="utf-8"))
-    cases = [c for c in data["cases"] if not args.group or c["group"] == args.group]
+    prompt_version, prompt = load_prompt()
+    cases_file = Path(args.cases)
+    data = json.loads(cases_file.read_text(encoding="utf-8"))
+    case_set_version = data.get("case_set_version", "unversioned")
+    dataset_type = data.get("dataset_type", "evaluation_set")
+    label_status = data.get("label_status", "not recorded")
+    cases = [
+        c for c in data["cases"]
+        if (not args.group or c["group"] == args.group)
+        and (not args.case_ids or c["id"] in set(args.case_ids))
+    ]
     if not cases:
         sys.exit(f"No cases in group {args.group!r}")
 
@@ -189,6 +201,10 @@ def main():
             totals["schema_ok"] += 1
             confusion[(case["expect"]["attendance"], result["attendance_got"])] += 1
 
+            if case["expect"]["attendance"] != "attending":
+                totals["overclaim_eligible"] += 1
+                by_group[group]["overclaim_eligible"] += 1
+
             for field in ("attendance", "travel_limit_minutes", "budget_limit"):
                 if result[field]:
                     totals[field] += 1
@@ -197,6 +213,8 @@ def main():
                 totals["overclaim"] += 1
                 by_group[group]["overclaim"] += 1
             for field in ("travel_limit_minutes", "budget_limit"):
+                if case["expect"].get(field) is None:
+                    totals[f"{field}_invention_eligible"] += 1
                 if result[f"{field}_invented"]:
                     totals[f"{field}_invented"] += 1
             if "confirmation_by" in result:
@@ -204,20 +222,23 @@ def main():
                 if result["confirmation_by"]:
                     totals["confirmation_by"] += 1
 
-            passed = result["attendance"] and result["travel_limit_minutes"] and result["budget_limit"]
+            scored_fields = ["attendance", "travel_limit_minutes", "budget_limit"]
+            if "confirmation_by" in result:
+                scored_fields.append("confirmation_by")
+            passed = all(result[field] for field in scored_fields)
             if passed:
                 totals["case_pass"] += 1
                 by_group[group]["case_pass"] += 1
             else:
-                wrong = [f for f in ("attendance", "travel_limit_minutes", "budget_limit") if not result[f]]
+                wrong = [field for field in scored_fields if not result[field]]
                 failures.append((case, "wrong: " + ", ".join(wrong), draft))
             print(f"  {'PASS' if passed else 'FAIL'} {case['id']:<28} {latency:.1f}s")
 
     runs = totals["runs"] or 1
     scored = totals["schema_ok"] or 1
 
-    def pct(n, d=None):
-        return f"{100.0 * n / (d or scored):.1f}%"
+    def pct(n, denominator):
+        return "n/a" if denominator == 0 else f"{100.0 * n / denominator:.1f}%"
 
     lines = [
         "# ChoiceMesh private-draft extraction — evaluation report",
@@ -226,7 +247,10 @@ def main():
         f"| --- | --- |",
         f"| Run at | {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} |",
         f"| Model | `{args.model}` |",
-        f"| Prompt version | `{data['prompt_version']}` |",
+        f"| Prompt version | `{prompt_version}` |",
+        f"| Dataset type | `{dataset_type}` |",
+        f"| Case-set version | `{case_set_version}` |",
+        f"| Label status | {label_status} |",
         f"| Cases | {len(cases)} x {args.repeat} run(s) = {runs} |",
         f"| Median latency | {sorted(latencies)[len(latencies)//2]:.1f}s |",
         "",
@@ -235,13 +259,13 @@ def main():
         "| Metric | Result | What a failure means |",
         "| --- | --- | --- |",
         f"| Schema valid | {pct(totals['schema_ok'], runs)} | The app cannot show a draft at all |",
-        f"| Full case pass | {pct(totals['case_pass'])} | Some field needs correcting before confirming |",
-        f"| Attendance correct | {pct(totals['attendance'])} | The member's own status is misread |",
-        f"| **Over-claim rate** | **{pct(totals['overclaim'])}** | **A hedged or negative reply is read as a firm yes** |",
-        f"| Travel limit correct | {pct(totals['travel_limit_minutes'])} | A constraint is lost or wrong |",
-        f"| Budget limit correct | {pct(totals['budget_limit'])} | A constraint is lost or wrong |",
-        f"| Travel invented | {pct(totals['travel_limit_minutes_invented'])} | A number appears the member never said |",
-        f"| Budget invented | {pct(totals['budget_limit_invented'])} | A number appears the member never said |",
+        f"| Full case pass | {pct(totals['case_pass'], scored)} | Some scored field needs correcting before confirming |",
+        f"| Attendance correct | {pct(totals['attendance'], scored)} | The member's own status is misread |",
+        f"| **Over-claim rate** | **{pct(totals['overclaim'], totals['overclaim_eligible'])} ({totals['overclaim']}/{totals['overclaim_eligible']})** | **A non-attending label is returned as a firm yes** |",
+        f"| Travel limit correct | {pct(totals['travel_limit_minutes'], scored)} | A constraint is lost or wrong |",
+        f"| Budget limit correct | {pct(totals['budget_limit'], scored)} | A constraint is lost or wrong |",
+        f"| Travel invented | {pct(totals['travel_limit_minutes_invented'], totals['travel_limit_minutes_invention_eligible'])} ({totals['travel_limit_minutes_invented']}/{totals['travel_limit_minutes_invention_eligible']}) | A number appears where the member stated none |",
+        f"| Budget invented | {pct(totals['budget_limit_invented'], totals['budget_limit_invention_eligible'])} ({totals['budget_limit_invented']}/{totals['budget_limit_invention_eligible']}) | A number appears where the member stated none |",
         f"| Call errors | {totals['errors']} of {runs} | The endpoint failed outright |",
         "",
         "Over-claim is the metric that matters most. Every other error is visible to",
@@ -258,7 +282,7 @@ def main():
         n = counts["runs"]
         lines.append(
             f"| {group} | {n} | {100.0*counts['case_pass']/n:.0f}% | "
-            f"{100.0*counts['attendance']/n:.0f}% | {counts['overclaim']} |"
+            f"{100.0*counts['attendance']/n:.0f}% | {counts['overclaim']}/{counts['overclaim_eligible']} |"
         )
 
     lines += ["", "## Attendance confusion", "", "| Expected | Returned | Count |", "| --- | --- | --- |"]
@@ -280,8 +304,9 @@ def main():
     report = "\n".join(lines) + "\n"
     Path(args.out).write_text(report, encoding="utf-8")
 
-    print(f"\nschema valid {pct(totals['schema_ok'], runs)} · case pass {pct(totals['case_pass'])} · "
-          f"attendance {pct(totals['attendance'])} · over-claim {pct(totals['overclaim'])}")
+    print(f"\nschema valid {pct(totals['schema_ok'], runs)} · case pass {pct(totals['case_pass'], scored)} · "
+          f"attendance {pct(totals['attendance'], scored)} · "
+          f"over-claim {pct(totals['overclaim'], totals['overclaim_eligible'])}")
     print(f"report written to {args.out}")
 
 

@@ -12,18 +12,21 @@ they would not notice.
 
 ```bash
 cd choicemesh-mvp
-python scripts/eval-parse-details.py                  # all 37 cases
+node scripts/build-golden-dataset.mjs                 # regenerate + validate 200 cases
+python scripts/eval-parse-details.py                  # all 200 cases
 python scripts/eval-parse-details.py --group hedged   # one group
 python scripts/eval-parse-details.py --repeat 3       # stability at temperature 0
 ```
 
-The key is read from `.env.local`. The system prompt is read directly out of
-`src/lib/ai/parse-details-prompt.ts`, so the harness cannot drift from what the
-product sends. A report is written to `evals/latest-report.md`.
+The key is read from `.env.local`. The prompt and its version are read directly
+out of `src/lib/ai/parse-details-prompt.ts`, while the labelled dataset carries
+its own case-set version. This prevents a report from presenting the dataset
+version as though it were the running prompt version. A report is written to
+`evals/latest-report.md`.
 
-## The case set
+## The Golden evaluation set
 
-37 labelled replies across nine groups, English and Chinese:
+`parse-details-golden-v1.json` is the project-canonical Golden set: 200 labelled synthetic replies across ten groups. It contains the frozen original 37-case baseline plus 163 curated additions. “Golden” means the expected outputs are the canonical regression labels for this project; it does not mean the labels have independent expert consensus.
 
 | Group | What it tests |
 | --- | --- |
@@ -35,12 +38,16 @@ product sends. A report is written to `evals/latest-report.md`.
 | `deadline` | A stated confirm-by time is captured, not converted |
 | `noise` | Chat with no constraint yields `not_specified` |
 | `mixed` | Code-switching and awkward negation |
+| `voice-noise` | Fillers, missing punctuation, self-correction and inaudible markers |
 | `adversarial` | The reply contains instructions; it must stay data |
+
+Every case has a unique ID, language, risk tags, annotation note and expected attendance/travel/budget values. `build-golden-dataset.mjs` rejects duplicate IDs/text, invalid labels, missing annotations, negative values or any count other than exactly 200. The former 37-case file is frozen under `evals/history/`.
 
 ## The metric that matters
 
-**Over-claim rate** — how often a hedged, negative, or unstated reply comes back
-as `attending`.
+**Over-claim rate** — among replies labelled hedged, negative, or unstated, how
+often the model returns `attending`. The denominator excludes replies already
+labelled `attending`; dividing by every case would understate this risk.
 
 Every other error costs the member one edit in the review step, because the
 draft is in front of them and wrong fields are obvious. An over-claim is
@@ -54,10 +61,10 @@ never said is a fabricated personal constraint.
 
 ## Limits of this evaluation
 
-- Labels are author-assigned, not multi-rater. Borderline hedging ("I'll try to
+- Labels are author-assigned and self-reviewed, not multi-rater. Borderline hedging ("I'll try to
   make it") is a judgement call, and disagreement on those cases is expected.
-- 37 cases is enough to catch systematic prompt failures, not enough for a
-  confident percentage. Report it as a direction, not a benchmark.
+- 200 cases offer broader regression coverage, but synthetic volume alone does
+  not make this a production benchmark. Always report raw counts and provenance.
 - The set is written by the person who wrote the prompt, which biases toward
   failures already imagined. Cases drawn from real usability-test transcripts
   should be added as they accumulate.
